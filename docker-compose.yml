@@ -1,0 +1,197 @@
+services:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Member Service — Port 8081
+  # ─────────────────────────────────────────────────────────────────────────────
+  member_service:
+    build:
+      context: ./member_service
+      dockerfile: Dockerfile
+    container_name: gym_member_service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - member_data:/app
+    networks:
+      - gym_network
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ATTENDANCE_SERVICE_URL=http://attendance_service:8085
+      - TRAINER_SERVICE_URL=http://trainer_service:8082
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Trainer Service — Port 8082
+  # ─────────────────────────────────────────────────────────────────────────────
+  trainer_service:
+    build:
+      context: ./trainer_service
+      dockerfile: Dockerfile
+    container_name: gym_trainer_service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    volumes:
+      - trainer_data:/app
+    networks:
+      - gym_network
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - CLASS_SERVICE_URL=http://class_service:8083
+      - EQUIPMENT_SERVICE_URL=http://equipment_service:8084
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8082/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Equipment Service — Port 8084
+  # (starts before class_service because class_service depends on it)
+  # ─────────────────────────────────────────────────────────────────────────────
+  equipment_service:
+    build:
+      context: ./equipment_service
+      dockerfile: Dockerfile
+    container_name: gym_equipment_service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    volumes:
+      - equipment_data:/app
+    networks:
+      - gym_network
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - CLASS_SERVICE_URL=http://class_service:8083
+      - MEMBER_SERVICE_URL=http://member_service:8081
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8084/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Class Service — Port 8083
+  # ─────────────────────────────────────────────────────────────────────────────
+  class_service:
+    build:
+      context: ./class_service
+      dockerfile: Dockerfile
+    container_name: gym_class_service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    volumes:
+      - class_data:/app
+    networks:
+      - gym_network
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - TRAINER_SERVICE_URL=http://trainer_service:8082
+      - MEMBER_SERVICE_URL=http://member_service:8081
+      - EQUIPMENT_SERVICE_URL=http://equipment_service:8084
+    depends_on:
+      trainer_service:
+        condition: service_healthy
+      equipment_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Attendance Service — Port 8085
+  # ─────────────────────────────────────────────────────────────────────────────
+  attendance_service:
+    build:
+      context: ./attendance_service
+      dockerfile: Dockerfile
+    container_name: gym_attendance_service
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    volumes:
+      - attendance_data:/app
+    networks:
+      - gym_network
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - MEMBER_SERVICE_URL=http://member_service:8081
+      - CLASS_SERVICE_URL=http://class_service:8083
+    depends_on:
+      member_service:
+        condition: service_healthy
+      class_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8085/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # API Gateway — Port 8080 (single public entry point)
+  # ─────────────────────────────────────────────────────────────────────────────
+  api_gateway:
+    build:
+      context: ./api_gateway
+      dockerfile: Dockerfile
+    container_name: gym_api_gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - gateway_data:/app
+    networks:
+      - gym_network
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - MEMBER_SERVICE_URL=http://member_service:8081
+      - TRAINER_SERVICE_URL=http://trainer_service:8082
+      - CLASS_SERVICE_URL=http://class_service:8083
+      - EQUIPMENT_SERVICE_URL=http://equipment_service:8084
+      - ATTENDANCE_SERVICE_URL=http://attendance_service:8085
+    depends_on:
+      member_service:
+        condition: service_healthy
+      trainer_service:
+        condition: service_healthy
+      class_service:
+        condition: service_healthy
+      equipment_service:
+        condition: service_healthy
+      attendance_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+# ─── Named Volumes (Data persists across restarts) ────────────────────────────
+volumes:
+  member_data:
+  trainer_data:
+  class_data:
+  equipment_data:
+  attendance_data:
+  gateway_data:
+
+# ─── Internal Network ─────────────────────────────────────────────────────────
+networks:
+  gym_network:
+    driver: bridge
