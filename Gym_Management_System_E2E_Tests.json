@@ -1,0 +1,376 @@
+{
+  "info": {
+    "name": "Gym Management API - E2E Integration Tests",
+    "description": "Smart End-to-End integration test suite. Automatically runs prior routes, extracts IDs (Trainer, Equipment, Class, Member), and injects them into subsequent test requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "e2e_username", "value": "", "type": "string" },
+    { "key": "e2e_trainer_id", "value": "", "type": "string" },
+    { "key": "e2e_equipment_id", "value": "", "type": "string" },
+    { "key": "e2e_class_id", "value": "", "type": "string" },
+    { "key": "e2e_member_email", "value": "", "type": "string" },
+    { "key": "e2e_member_id", "value": "", "type": "string" },
+    { "key": "e2e_attendance_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Setup & Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "let ts = pm.variables.replaceIn('{{$timestamp}}');",
+                  "pm.collectionVariables.set('e2e_username', 'tester_' + ts);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 (Success)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"{{e2e_username}}\",\n    \"password\": \"password123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": [ "{{base_url}}" ],
+              "path": [ "register" ]
+            }
+          }
+        },
+        {
+          "name": "Login (Get Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 (Authenticated)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Token returned successfully\", function () {",
+                  "    pm.expect(jsonData.access_token).to.not.be.undefined;",
+                  "});",
+                  "if (jsonData.access_token) {",
+                  "    pm.collectionVariables.set(\"access_token\", jsonData.access_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "{{e2e_username}}", "type": "text" },
+                { "key": "password", "value": "password123", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/token",
+              "host": [ "{{base_url}}" ],
+              "path": [ "token" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Dependencies Creation",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          { "key": "token", "value": "{{access_token}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "Create Trainer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 (Created)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"e2e_trainer_id\", jsonData.id);",
+                  "console.log(\"Saved Trainer ID: \" + jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"E2E Tester Trainer\",\n    \"specialization\": \"Automation\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/trainers",
+              "host": [ "{{base_url}}" ],
+              "path": [ "trainers" ]
+            }
+          }
+        },
+        {
+          "name": "Create Equipment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 (Created)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"e2e_equipment_id\", jsonData.id);",
+                  "console.log(\"Saved Equipment ID: \" + jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"E2E Smart Bike\",\n    \"category\": \"Cardio\",\n    \"quantity\": 5,\n    \"condition\": \"Good\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/equipment",
+              "host": [ "{{base_url}}" ],
+              "path": [ "equipment" ]
+            }
+          }
+        },
+        {
+          "name": "Create Class (Depends on Trainer & Equipment)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 (Created)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"e2e_class_id\", jsonData.id);",
+                  "console.log(\"Saved Class ID: \" + jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"E2E Morning Spin\",\n    \"trainer_id\": {{e2e_trainer_id}},\n    \"equipment_id\": {{e2e_equipment_id}},\n    \"schedule\": \"Monday 08:00 AM\",\n    \"capacity\": 10\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/classes",
+              "host": [ "{{base_url}}" ],
+              "path": [ "classes" ]
+            }
+          }
+        },
+        {
+          "name": "Create Member (Depends on Trainer)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "let ts = pm.variables.replaceIn('{{$timestamp}}');",
+                  "pm.collectionVariables.set('e2e_member_email', 'e2e_user_' + ts + '@gym.com');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 (Created)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"e2e_member_id\", jsonData.id);",
+                  "console.log(\"Saved Member ID: \" + jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"E2E Gym Member\",\n    \"email\": \"{{e2e_member_email}}\",\n    \"status\": \"Active\",\n    \"trainer_id\": {{e2e_trainer_id}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/members",
+              "host": [ "{{base_url}}" ],
+              "path": [ "members" ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Operations Flow",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          { "key": "token", "value": "{{access_token}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "Register Member to Class",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 (Success)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"member_id\": {{e2e_member_id}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/classes/{{e2e_class_id}}/register",
+              "host": [ "{{base_url}}" ],
+              "path": [ "classes", "{{e2e_class_id}}", "register" ]
+            }
+          }
+        },
+        {
+          "name": "Mark Attendance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 (Created)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"e2e_attendance_id\", jsonData.id);",
+                  "console.log(\"Saved Attendance Record ID: \" + jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"member_id\": {{e2e_member_id}},\n    \"class_id\": {{e2e_class_id}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance",
+              "host": [ "{{base_url}}" ],
+              "path": [ "attendance" ]
+            }
+          }
+        },
+        {
+          "name": "Verify Member Progress",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Total attendance should be >= 1\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.total_attendance).to.be.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/members/{{e2e_member_id}}/progress",
+              "host": [ "{{base_url}}" ],
+              "path": [ "members", "{{e2e_member_id}}", "progress" ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
